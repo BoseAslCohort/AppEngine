@@ -1,2 +1,2 @@
-./video-data
+video-data/*
 *.json
