@@ -154,22 +154,29 @@ def server_error(e):
     See logs for full stacktrace.
     """.format(e), 500
 
+def sort_dict(d, sort_by, value):
+    zipped = zip(d[sort_by], d[value])
+    zipped.sort(key=lambda x: x[0], reverse=True)
+    return {sort_by: [i[0] for i in zipped], value: [i[1] for i in zipped]}
+
 def create_bar_chart(data, title, x_name, y_name, hover_tool=None,
-                     width=1200, height=300):
+                     width=100, height=100):
     """Creates a bar chart plot with the exact styling for the centcom
        dashboard. Pass in data as a dictionary, desired plot title,
        name of x axis, y axis and the hover tool HTML.
     """
-    data.pop('video_id', None)
+    video_id = data.pop('video_id', None)
+    title = "ID " + video_id + " " + title
     source = ColumnDataSource(data)
-    xdr = FactorRange(factors=data[x_name])
-    ydr = Range1d(start=0,end=max(data[y_name])*1.5)
+    xdr = FactorRange(factors=[str(i) for i in data[x_name]])
+    ydr = Range1d(start=0,end=1)
 
     tools = []
     if hover_tool:
         tools = [hover_tool,]
 
-    plot = figure(title=title, x_range=xdr, y_range=ydr, plot_width=width,
+    plot = figure(title= title, 
+                  x_range=xdr, y_range=ydr, plot_width=width,
                   plot_height=height, h_symmetry=False, v_symmetry=False,
                   min_border=0, toolbar_location="above", tools=tools,
                   responsive=True, outline_line_color="#666666")
@@ -187,9 +194,9 @@ def create_bar_chart(data, title, x_name, y_name, hover_tool=None,
     plot.min_border_top = 0
     plot.xgrid.grid_line_color = None
     plot.ygrid.grid_line_color = "#999999"
-    plot.yaxis.axis_label = "Bugs found"
+    plot.yaxis.axis_label = "Probability"
     plot.ygrid.grid_line_alpha = 0.1
-    plot.xaxis.axis_label = "Days after app deployment"
+    plot.xaxis.axis_label = "Class"
     plot.xaxis.major_label_orientation = 1
     return plot
 
