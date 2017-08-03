@@ -107,6 +107,7 @@ def random():
     # for item_index, item in enumerate(tf.python_io.tf_record_iterator(video_lvl_record)):
     #   if item_index == iterate_until:
     #     example=item
+    
     example = np.random.choice(list(tf.python_io.tf_record_iterator(video_lvl_record)))
     example = base64.b64encode(example)
 
