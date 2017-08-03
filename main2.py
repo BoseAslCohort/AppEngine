@@ -101,15 +101,17 @@ def random():
     #     labels.append(tf_example.features.feature['labels'].int64_list.value)
     #     mean_rgb.append(tf_example.features.feature['mean_rgb'].float_list.value)
     #     mean_audio.append(tf_example.features.feature['mean_audio'].float_list.value)
-
-    example=next(tf.python_io.tf_record_iterator(video_lvl_record))
+    
+    # pull a random item from generator
+    # iterate_until = np.random.randint(10)
+    # for item_index, item in enumerate(tf.python_io.tf_record_iterator(video_lvl_record)):
+    #   if item_index == iterate_until:
+    #     example=item
+    example = np.random.choice(list(tf.python_io.tf_record_iterator(video_lvl_record)))
     example = base64.b64encode(example)
 
     # in order to do inference in the cloud you have to do a base64
-    body = {
-      'instances': [{"b64": example}
-      ]
-    }
+    body = {'instances': [{"b64": example}]}
     http_body = json.dumps(body, sort_keys=True)
     response, response_body = http_auth.request(
       uri=url, method='POST', body=http_body, headers=headers)
