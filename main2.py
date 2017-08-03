@@ -17,6 +17,7 @@ import numpy as np
 import tensorflow as tf
 import os
 import ast
+import csv
 
 import logging
 import base64
@@ -33,7 +34,6 @@ from bokeh.plotting import figure
 from bokeh.charts import Bar
 from bokeh.embed import components
 from bokeh.models.sources import ColumnDataSource
-
 
 app = Flask(__name__)
 
@@ -117,6 +117,9 @@ def random():
     #     example=item
 
     example = np.random.choice(list(tf.python_io.tf_record_iterator(video_lvl_record)))
+    tf_example = tf.train.Example.FromString(example)
+    video_url = tf_example.features.feature['video_id']
+    # import ipdb; ipdb.set_trace()
     example = base64.b64encode(example)
 
     # in order to do inference in the cloud you have to do a base64
@@ -154,10 +157,41 @@ def server_error(e):
     See logs for full stacktrace.
     """.format(e), 500
 
-def sort_dict(d, sort_by, value):
-    zipped = zip(d[sort_by], d[value])
-    zipped.sort(key=lambda x: x[0], reverse=True)
-    return {sort_by: [i[0] for i in zipped], value: [i[1] for i in zipped]}
+'''
+Returns a Dictionary storing information by video ID.
+Ex:    ID = 123
+       name = video_info[ID]['Name']          # Returns the name of the video
+       url = video_info[ID]['WikiUrl']        # Returns the wikipedia URL
+       category = video_info[ID]['Vertical1'] # Returns the first vertical (category)
+'''
+def video_info(csv_path):
+
+    video_info = {}
+    info_cols = ['Index', 'Name', 'WikiUrl', 'Vertical1']
+
+    with open(csv_path) as csvfile:
+        csvinfo = csv.reader(csvfile, delimiter=',')
+        cols = csvinfo.next()
+        indices = [cols.index(col) for col in info_cols]
+
+        for row in csvinfo:
+            vid_id = int(row[indices[0]])
+            video_info[vid_id] = {}
+            for i, info_col in enumerate(info_cols[1:]):
+                video_info[vid_id][info_col] = row[indices[i+1]]
+                
+    return video_info
+
+def sort_dict(d, x_name, y_name, topK=5):
+    # import ipdb; ipdb.set_trace()
+    zipped = zip(d[x_name], d[y_name])
+    zipped.sort(key=lambda x: x[1], reverse=True)
+    VIDEO_DECODER = video_info('vocabulary.csv')
+    named = [(VIDEO_DECODER[id[0]]['Name'], id[1]) for i, id in enumerate(zipped)]
+    # import ipdb; ipdb.set_trace()
+
+    sorted_dict = {x_name: [i[0] for i in named[:topK]], y_name: [i[1] for i in named[:topK]]}
+    return sorted_dict
 
 def create_bar_chart(data, title, x_name, y_name, hover_tool=None,
                      width=100, height=100):
@@ -165,11 +199,14 @@ def create_bar_chart(data, title, x_name, y_name, hover_tool=None,
        dashboard. Pass in data as a dictionary, desired plot title,
        name of x axis, y axis and the hover tool HTML.
     """
+
     video_id = data.pop('video_id', None)
+    data_sorted = sort_dict(data, x_name, y_name)
     title = "ID " + video_id + " " + title
-    source = ColumnDataSource(data)
-    xdr = FactorRange(factors=[str(i) for i in data[x_name]])
-    ydr = Range1d(start=0,end=1)
+
+    source = ColumnDataSource(data_sorted)
+    xdr = FactorRange(factors=[str(i) for i in data_sorted[x_name]])
+    ydr = Range1d(start=0,end=1.01)
 
     tools = []
     if hover_tool:
