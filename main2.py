@@ -19,7 +19,6 @@ import tensorflow as tf
 import logging
 from flask import Flask
 import base64
-import requests
 import oauth2client.service_account
 from httplib2 import Http
 import json
@@ -86,7 +85,9 @@ def random():
       <iframe src="https://www.youtube.com/embed/${youtube_id}" width="853" height="480" frameborder="0" allowfullscreen></iframe>
     """)
 
-    video_lvl_record = "./video_data/testa0.tfrecord"
+    video_folder = "./video_data/"
+    video_lvl_records = [i for i in os.listdir(video_folder) if i.endswith("tfrecord")]
+    video_lvl_record = os.path.join(video_folder, np.random.choice(video_lvl_records))
     # frame_lvl_record = "./frame_data/traina0.tfrecord"
 
     vid_ids = []
@@ -105,8 +106,6 @@ def random():
     example = base64.b64encode(example)
 
     # in order to do inference in the cloud you have to do a base64
-
-    ######
     body = {
       'instances': [{"b64": example}
       ]
@@ -121,7 +120,7 @@ def random():
     class_indeces = response_body_dict['predictions'][0]['class_indexes']
 
     return vidtemplate.substitute(
-      youtube_id=video_id, video = 'video_id', 
+      youtube_id=video_id, video = video_id, 
       preds = predictions, classes = class_indeces)
 
 
