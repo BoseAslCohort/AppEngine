@@ -15,17 +15,25 @@
 # [START app]
 import numpy as np 
 import tensorflow as tf
+import os
+import ast
 
 import logging
-from flask import Flask
 import base64
 import oauth2client.service_account
 from httplib2 import Http
 import json
-
 from string import Template
-import os
-import ast
+
+from flask import Flask, render_template
+from bokeh.models import (HoverTool, FactorRange, Plot, 
+                          LinearAxis, Grid, Range1d)
+from bokeh.models.glyphs import VBar
+from bokeh.plotting import figure
+from bokeh.charts import Bar
+from bokeh.embed import components
+from bokeh.models.sources import ColumnDataSource
+
 
 app = Flask(__name__)
 
@@ -107,7 +115,7 @@ def random():
     # for item_index, item in enumerate(tf.python_io.tf_record_iterator(video_lvl_record)):
     #   if item_index == iterate_until:
     #     example=item
-    
+
     example = np.random.choice(list(tf.python_io.tf_record_iterator(video_lvl_record)))
     example = base64.b64encode(example)
 
@@ -118,13 +126,24 @@ def random():
       uri=url, method='POST', body=http_body, headers=headers)
     response_body_dict = ast.literal_eval(response_body)
 
-    video_id = response_body_dict['predictions'][0]['video_id']
-    predictions = response_body_dict['predictions'][0]['predictions']
-    class_indeces = response_body_dict['predictions'][0]['class_indexes']
+    pred_dict = response_body_dict['predictions'][0]
+    video_id = pred_dict['video_id']
+    predictions = pred_dict['predictions']
+    class_indeces = pred_dict['class_indexes']
 
-    return vidtemplate.substitute(
-      youtube_id=video_id, video = video_id, 
-      preds = predictions, classes = class_indeces)
+    # create chart
+    plot = create_bar_chart(data = pred_dict, 
+                            title = "Top K Probabilities", 
+                            x_name = "class_indexes",
+                            y_name = "predictions", 
+                            hover_tool = None)
+    script, div = components(plot)
+
+    # return vidtemplate.substitute(
+    #   youtube_id=video_id, video = video_id, 
+    #   preds = predictions, classes = class_indeces)
+    return render_template("chart.html", bars_count=len(predictions),
+                           the_div=div, the_script=script)
 
 
 @app.errorhandler(500)
@@ -134,6 +153,45 @@ def server_error(e):
     An internal error occurred: <pre>{}</pre>
     See logs for full stacktrace.
     """.format(e), 500
+
+def create_bar_chart(data, title, x_name, y_name, hover_tool=None,
+                     width=1200, height=300):
+    """Creates a bar chart plot with the exact styling for the centcom
+       dashboard. Pass in data as a dictionary, desired plot title,
+       name of x axis, y axis and the hover tool HTML.
+    """
+    data.pop('video_id', None)
+    source = ColumnDataSource(data)
+    xdr = FactorRange(factors=data[x_name])
+    ydr = Range1d(start=0,end=max(data[y_name])*1.5)
+
+    tools = []
+    if hover_tool:
+        tools = [hover_tool,]
+
+    plot = figure(title=title, x_range=xdr, y_range=ydr, plot_width=width,
+                  plot_height=height, h_symmetry=False, v_symmetry=False,
+                  min_border=0, toolbar_location="above", tools=tools,
+                  responsive=True, outline_line_color="#666666")
+
+    glyph = VBar(x=x_name, top=y_name, bottom=0, width=.8,
+                 fill_color="#e12127")
+    plot.add_glyph(source, glyph)
+
+    xaxis = LinearAxis()
+    yaxis = LinearAxis()
+
+    plot.add_layout(Grid(dimension=0, ticker=xaxis.ticker))
+    plot.add_layout(Grid(dimension=1, ticker=yaxis.ticker))
+    plot.toolbar.logo = None
+    plot.min_border_top = 0
+    plot.xgrid.grid_line_color = None
+    plot.ygrid.grid_line_color = "#999999"
+    plot.yaxis.axis_label = "Bugs found"
+    plot.ygrid.grid_line_alpha = 0.1
+    plot.xaxis.axis_label = "Days after app deployment"
+    plot.xaxis.major_label_orientation = 1
+    return plot
 
 
 if __name__ == '__main__':
