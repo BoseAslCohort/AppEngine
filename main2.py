@@ -13,21 +13,22 @@
 # limitations under the License.
 
 # [START app]
-import logging
-from string import Template
-from flask import Flask
-import numpy as np # linear algebra
-import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
+import numpy as np 
 import tensorflow as tf
-import numpy as np
+
+import logging
+from flask import Flask
 import base64
-from subprocess import check_output
 import requests
-import google.datalab as datalab
+import oauth2client.service_account
+from httplib2 import Http
+import json
+
+from string import Template
 import os
+import ast
 
 app = Flask(__name__)
-
 
 @app.route('/')
 def hello():
@@ -56,20 +57,27 @@ def videos(vid):
 def random():
     model_name = 'test_Moe'
     model_version = 'v1'
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS']='qwiklabs-gcp-dbd8214a842cac50-317227781517.json'
+    with open('qwiklabs-gcp-dbd8214a842cac50-317227781517.json') as data_file:
+          key = json.load(data_file)
     api = 'https://ml.googleapis.com/v1/projects/{project}/models/{model}/versions/{version}:predict'
-    url = api.format(project=datalab.Context.default().project_id,
+    url = api.format(project='qwiklabs-gcp-dbd8214a842cac50',
                  model=model_name,
                  version=model_version)
-    headers = {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + datalab.Context.default().credentials.get_access_token().access_token
-    }
+    headers = {'Content-Type': 'application/json'}
 
+    credentials = oauth2client.service_account.ServiceAccountCredentials.from_json_keyfile_dict(
+            keyfile_dict = key, 
+            scopes=['https://www.googleapis.com/auth/cloud-platform'])
+
+    http_auth = credentials.authorize(Http(timeout=30))
 
     vidtemplate = Template("""
       <h2>
-        YouTube video link:
+        Video ID:${video}\n
+        Predictions:${preds}\n
+        Class Indices:${classes}\n\n
+
+        YouTube video link: \n 
         <a href="https://www.youtube.com/watch?v=${youtube_id}">
           ${youtube_id}
         </a>
@@ -103,14 +111,19 @@ def random():
       'instances': [{"b64": example}
       ]
     }
-    import ipdb; ipdb.set_trace()
+    http_body = json.dumps(body, sort_keys=True)
 
-    response = requests.post(url, json=body, headers=headers)
-    video_id = response.json()['predictions'][0]['video_id']
-    predictions = response.json()['predictions'][0]['predictions']
-    class_indeces = response.json()['predictions'][0]['class_indexes']
+    # import ipdb; ipdb.set_trace()
 
-    return vidtemplate.substitute(youtube_id=video_id)
+    response, response_body = http_auth.request(uri=url, method='POST', body=http_body, headers=headers)
+
+    response_body_dict = ast.literal_eval(response_body)
+
+    video_id = response_body_dict['predictions'][0]['video_id']
+    predictions = response_body_dict['predictions'][0]['predictions']
+    class_indeces = response_body_dict['predictions'][0]['class_indexes']
+
+    return vidtemplate.substitute(youtube_id=video_id, video = 'video_id', preds = predictions, classes = class_indeces)
 
 
 @app.errorhandler(500)
