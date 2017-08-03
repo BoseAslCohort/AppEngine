@@ -1,12 +1,18 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Bar charts with Bokeh!</title>
+    <title>Youtube Video Predictions</title>
     <link href="http://cdn.pydata.org/bokeh/release/bokeh-0.12.6.min.css" rel="stylesheet">
     <link href="http://cdn.pydata.org/bokeh/release/bokeh-widgets-0.12.6.min.css" rel="stylesheet">
   </head>
   <body>
-    <h1>Top K Predictions</h1>
+    <h1>Youtube Video Predictions</h1>
+      <h2>YouTube video link:
+        <a href="https://www.youtube.com/watch?v={{youtube_id}}">
+          ${youtube_id}
+        </a>
+      </h2>
+    <iframe src="https://www.youtube.com/embed/{{youtube_id}}" width="853" height="480" frameborder="0" allowfullscreen></iframe>
     {{ the_div|safe }}
     <script src="http://cdn.pydata.org/bokeh/release/bokeh-0.12.6.min.js"></script>
     <script src="http://cdn.pydata.org/bokeh/release/bokeh-widgets-0.12.6.min.js"></script>

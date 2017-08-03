@@ -146,7 +146,7 @@ def random():
     #   youtube_id=video_id, video = video_id, 
     #   preds = predictions, classes = class_indeces)
     return render_template("chart.html", bars_count=len(predictions),
-                           the_div=div, the_script=script)
+                           youtube_id = video_id, the_div=div, the_script=script)
 
 
 @app.errorhandler(500)
