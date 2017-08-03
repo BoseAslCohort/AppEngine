@@ -112,18 +112,17 @@ def random():
       ]
     }
     http_body = json.dumps(body, sort_keys=True)
-
-    # import ipdb; ipdb.set_trace()
-
-    response, response_body = http_auth.request(uri=url, method='POST', body=http_body, headers=headers)
-
+    response, response_body = http_auth.request(
+      uri=url, method='POST', body=http_body, headers=headers)
     response_body_dict = ast.literal_eval(response_body)
 
     video_id = response_body_dict['predictions'][0]['video_id']
     predictions = response_body_dict['predictions'][0]['predictions']
     class_indeces = response_body_dict['predictions'][0]['class_indexes']
 
-    return vidtemplate.substitute(youtube_id=video_id, video = 'video_id', preds = predictions, classes = class_indeces)
+    return vidtemplate.substitute(
+      youtube_id=video_id, video = 'video_id', 
+      preds = predictions, classes = class_indeces)
 
 
 @app.errorhandler(500)
