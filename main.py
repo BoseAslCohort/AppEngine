@@ -42,6 +42,7 @@ app = Flask(__name__)
 
 bucket_string = "youtube8m-ml-us-east1"
 video_bucket = "gs://youtube8m-ml-us-east1/1/video_level/validate"
+cred_json = 'gs://youtube-8m/json/qwiklabs-gcp-dbd8214a842cac50-317227781517.json'
 validate_records = file_io.list_directory(video_bucket)
 
 @app.route('/')
@@ -71,8 +72,10 @@ def videos(vid):
 def random():
     model_name = 'test_Moe'
     model_version = 'v1'
-    with open('qwiklabs-gcp-dbd8214a842cac50-317227781517.json') as data_file:
-          key = json.load(data_file)
+    with file_io.FileIO(cred_json, 'r') as f:
+        key = json.load(f)
+    # with open('qwiklabs-gcp-dbd8214a842cac50-317227781517.json') as data_file:
+    #       key = json.load(data_file)
     api = 'https://ml.googleapis.com/v1/projects/{project}/models/{model}/versions/{version}:predict'
     url = api.format(project='qwiklabs-gcp-dbd8214a842cac50',
                  model=model_name,
