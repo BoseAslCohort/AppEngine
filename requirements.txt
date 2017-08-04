@@ -1,2 +1,10 @@
-Flask==0.12.2
+flask==0.12.2
 gunicorn==19.7.1
+numpy
+tensorflow
+oauth2client
+httplib2
+bokeh
+google.cloud
+pandas
+ipdb

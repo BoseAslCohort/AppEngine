@@ -25,17 +25,30 @@ import oauth2client.service_account
 from httplib2 import Http
 import json
 from string import Template
+# from google.cloud import storage
+from copy import deepcopy
+from tensorflow.python.lib.io import file_io
 
 from flask import Flask, render_template
 from bokeh.models import (HoverTool, FactorRange, Plot, 
-                          LinearAxis, Grid, Range1d)
+                          LinearAxis, Grid, Range1d, LabelSet)
 from bokeh.models.glyphs import VBar
 from bokeh.plotting import figure
 from bokeh.charts import Bar
 from bokeh.embed import components
 from bokeh.models.sources import ColumnDataSource
 
+# flask constructors
 app = Flask(__name__)
+
+# gcloud constructors
+# client = storage.Client(project='qwiklabs-gcp-dbd8214a842cac50')
+# bucket = client.get_bucket('youtube8m-ml-us-east1')
+# validate_blobs = list(bucket.list_blobs(prefix='1/video_level/validate/'))
+
+bucket_string = "youtube8m-ml-us-east1"
+video_bucket = "gs://youtube8m-ml-us-east1/1/video_level/validate"
+validate_records = file_io.list_directory(video_bucket)
 
 @app.route('/')
 def hello():
@@ -78,55 +91,28 @@ def random():
 
     http_auth = credentials.authorize(Http(timeout=30))
 
-    vidtemplate = Template("""
-      <h2>
-        Video ID:${video}\n
-        Predictions:${preds}\n
-        Class Indices:${classes}\n\n
-
-        YouTube video link: \n 
-        <a href="https://www.youtube.com/watch?v=${youtube_id}">
-          ${youtube_id}
-        </a>
-      </h2>
-
-      <iframe src="https://www.youtube.com/embed/${youtube_id}" width="853" height="480" frameborder="0" allowfullscreen></iframe>
-    """)
-
-    video_folder = "./video_data/"
-    video_lvl_records = [i for i in os.listdir(video_folder) if i.endswith("tfrecord")]
-    video_lvl_record = os.path.join(video_folder, np.random.choice(video_lvl_records))
-    # frame_lvl_record = "./frame_data/traina0.tfrecord"
-
-    vid_ids = []
-    labels = []
-    mean_rgb = []
-    mean_audio = []
-
-    # for example in tf.python_io.tf_record_iterator(video_lvl_record):
-    #     tf_example = tf.train.Example.FromString(example)
-    #     vid_ids.append(tf_example.features.feature['video_id'].bytes_list.value[0].decode(encoding='UTF-8'))
-    #     labels.append(tf_example.features.feature['labels'].int64_list.value)
-    #     mean_rgb.append(tf_example.features.feature['mean_rgb'].float_list.value)
-    #     mean_audio.append(tf_example.features.feature['mean_audio'].float_list.value)
+    # video_folder = "gs://youtube8m-ml-us-east1/1/video_level/validate"
+    # video_lvl_records = [i for i in os.listdir(video_folder) if i.endswith("tfrecord")]
+    # video_lvl_record = os.path.join(video_folder, np.random.choice(video_lvl_records))
     
-    # pull a random item from generator
-    # iterate_until = np.random.randint(10)
-    # for item_index, item in enumerate(tf.python_io.tf_record_iterator(video_lvl_record)):
-    #   if item_index == iterate_until:
-    #     example=item
-
-    example = np.random.choice(list(tf.python_io.tf_record_iterator(video_lvl_record)))
-    tf_example = tf.train.Example.FromString(example)
-    video_url = tf_example.features.feature['video_id']
+    # example_blob = np.random.choice(validate_blobs[1:])
     # import ipdb; ipdb.set_trace()
+    # file_name = example_blob.name[example_blob.name.index('validate/')+9:]
+    file_name = np.random.choice(validate_records)
+    full_record_path = os.path.join(video_bucket,file_name).encode('ascii')
+    # example_blob_string = example_blob.download_as_string(client)
+
+    #example = np.random.choice(list(tf.python_io.tf_record_iterator(video_lvl_record)))
+    example = np.random.choice(list(tf.python_io.tf_record_iterator(full_record_path)))
+
+    # tf_example = tf.train.Example.FromString(example)
+    # video_url = tf_example.features.feature['video_id']
     example = base64.b64encode(example)
 
     # in order to do inference in the cloud you have to do a base64
     body = {'instances': [{"b64": example}]}
     http_body = json.dumps(body, sort_keys=True)
-    response, response_body = http_auth.request(
-      uri=url, method='POST', body=http_body, headers=headers)
+    response, response_body = http_auth.request(uri=url, method='POST', body=http_body, headers=headers)
     response_body_dict = ast.literal_eval(response_body)
 
     pred_dict = response_body_dict['predictions'][0]
@@ -142,9 +128,6 @@ def random():
                             hover_tool = None)
     script, div = components(plot)
 
-    # return vidtemplate.substitute(
-    #   youtube_id=video_id, video = video_id, 
-    #   preds = predictions, classes = class_indeces)
     return render_template("chart.html", bars_count=len(predictions),
                            youtube_id = video_id, the_div=div, the_script=script)
 
@@ -199,9 +182,10 @@ def create_bar_chart(data, title, x_name, y_name, hover_tool=None,
        dashboard. Pass in data as a dictionary, desired plot title,
        name of x axis, y axis and the hover tool HTML.
     """
-
-    video_id = data.pop('video_id', None)
-    data_sorted = sort_dict(data, x_name, y_name)
+    # import ipdb; ipdb.set_trace()
+    vid = deepcopy(data)
+    video_id = vid.pop('video_id', None)
+    data_sorted = sort_dict(vid, x_name, y_name)
     title = "ID " + video_id + " " + title
 
     source = ColumnDataSource(data_sorted)
@@ -221,6 +205,9 @@ def create_bar_chart(data, title, x_name, y_name, hover_tool=None,
     glyph = VBar(x=x_name, top=y_name, bottom=0, width=.8,
                  fill_color="#e12127")
     plot.add_glyph(source, glyph)
+
+    # labels = LabelSet(x=xdr, y=ydr, text=xdr, level='glyph', source=source, render_mode='canvas')
+    # plot.add_layout(labels)
 
     xaxis = LinearAxis()
     yaxis = LinearAxis()
