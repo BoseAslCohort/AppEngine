@@ -25,7 +25,6 @@ import oauth2client.service_account
 from httplib2 import Http
 import json
 from string import Template
-# from google.cloud import storage
 from copy import deepcopy
 from tensorflow.python.lib.io import file_io
 
@@ -40,11 +39,6 @@ from bokeh.models.sources import ColumnDataSource
 
 # flask constructors
 app = Flask(__name__)
-
-# gcloud constructors
-# client = storage.Client(project='qwiklabs-gcp-dbd8214a842cac50')
-# bucket = client.get_bucket('youtube8m-ml-us-east1')
-# validate_blobs = list(bucket.list_blobs(prefix='1/video_level/validate/'))
 
 bucket_string = "youtube8m-ml-us-east1"
 video_bucket = "gs://youtube8m-ml-us-east1/1/video_level/validate"
@@ -91,22 +85,9 @@ def random():
 
     http_auth = credentials.authorize(Http(timeout=30))
 
-    # video_folder = "gs://youtube8m-ml-us-east1/1/video_level/validate"
-    # video_lvl_records = [i for i in os.listdir(video_folder) if i.endswith("tfrecord")]
-    # video_lvl_record = os.path.join(video_folder, np.random.choice(video_lvl_records))
-    
-    # example_blob = np.random.choice(validate_blobs[1:])
-    # import ipdb; ipdb.set_trace()
-    # file_name = example_blob.name[example_blob.name.index('validate/')+9:]
     file_name = np.random.choice(validate_records)
     full_record_path = os.path.join(video_bucket,file_name).encode('ascii')
-    # example_blob_string = example_blob.download_as_string(client)
-
-    #example = np.random.choice(list(tf.python_io.tf_record_iterator(video_lvl_record)))
     example = np.random.choice(list(tf.python_io.tf_record_iterator(full_record_path)))
-
-    # tf_example = tf.train.Example.FromString(example)
-    # video_url = tf_example.features.feature['video_id']
     example = base64.b64encode(example)
 
     # in order to do inference in the cloud you have to do a base64
@@ -166,12 +147,10 @@ def video_info(csv_path):
     return video_info
 
 def sort_dict(d, x_name, y_name, topK=5):
-    # import ipdb; ipdb.set_trace()
     zipped = zip(d[x_name], d[y_name])
     zipped.sort(key=lambda x: x[1], reverse=True)
     VIDEO_DECODER = video_info('vocabulary.csv')
     named = [(VIDEO_DECODER[id[0]]['Name'], id[1]) for i, id in enumerate(zipped)]
-    # import ipdb; ipdb.set_trace()
 
     sorted_dict = {x_name: [i[0] for i in named[:topK]], y_name: [i[1] for i in named[:topK]]}
     return sorted_dict
@@ -205,9 +184,6 @@ def create_bar_chart(data, title, x_name, y_name, hover_tool=None,
     glyph = VBar(x=x_name, top=y_name, bottom=0, width=.8,
                  fill_color="#e12127")
     plot.add_glyph(source, glyph)
-
-    # labels = LabelSet(x=xdr, y=ydr, text=xdr, level='glyph', source=source, render_mode='canvas')
-    # plot.add_layout(labels)
 
     xaxis = LinearAxis()
     yaxis = LinearAxis()
